@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Renomeador de NFS-e</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F5F3EE; --surface: #FFFFFF; --surface2: #EDEAE3;
+      --border: #D8D4CC; --border2: #C8C3B8;
+      --text: #1A1917; --text2: #6B6760; --text3: #9E9A94;
+      --accent: #1A1917;
+      --danger-bg: #FCEBEB; --danger-text: #A32D2D; --danger-border: #F09595;
+      --mono: 'IBM Plex Mono', monospace; --sans: 'Syne', sans-serif;
+    }
+    body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; gap: 12px; background: var(--surface); }
+    .logo { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .logo svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    header h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    header span { font-size: 13px; color: var(--text3); margin-left: auto; }
+    main { flex: 1; max-width: 640px; width: 100%; margin: 0 auto; padding: 3rem 1.5rem; }
+    .hero { margin-bottom: 2.5rem; }
+    .hero h2 { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 0.6rem; }
+    .hero p { font-size: 14px; color: var(--text2); line-height: 1.6; }
+    .drop-zone { border: 1.5px dashed var(--border2); border-radius: 16px; padding: 2.5rem 2rem; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--surface); margin-bottom: 1.5rem; }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: #F0EDE6; }
+    .drop-zone svg { width: 36px; height: 36px; stroke: var(--text3); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 0.75rem; }
+    .drop-zone h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .drop-zone p { font-size: 13px; color: var(--text3); }
+    .drop-zone input { display: none; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+    .file-header { display: flex; align-items: center; gap: 12px; }
+    .file-icon { width: 40px; height: 40px; background: var(--surface2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .file-icon svg { width: 20px; height: 20px; stroke: var(--text2); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .file-info { flex: 1; min-width: 0; }
+    .file-info .name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-info .size { font-size: 12px; color: var(--text3); margin-top: 2px; }
+    .btn-reset { background: none; border: none; cursor: pointer; color: var(--text3); padding: 6px; border-radius: 6px; display: flex; align-items: center; transition: background 0.1s; }
+    .btn-reset:hover { background: var(--surface2); color: var(--text); }
+    .btn-reset svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+    .processing { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 2rem; background: var(--surface2); border-radius: 12px; margin-bottom: 1rem; }
+    .spinner { width: 26px; height: 26px; border: 2.5px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .processing p { font-size: 14px; color: var(--text2); }
+    .label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .data-cell { background: var(--surface2); border-radius: 8px; padding: 0.75rem 1rem; }
+    .data-cell .cell-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+    .data-cell .cell-value { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; word-break: break-word; }
+    .filename-box { background: var(--surface2); border-radius: 8px; padding: 0.75rem 1rem; margin-top: 10px; display: flex; align-items: flex-start; gap: 10px; }
+    .filename-box svg { width: 18px; height: 18px; stroke: #27500A; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; margin-top: 1px; }
+    .filename-box code { font-family: var(--mono); font-size: 12px; color: var(--text); word-break: break-all; line-height: 1.5; }
+    .divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+    .btn-download { width: 100%; padding: 12px 20px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-family: var(--sans); font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.1s; }
+    .btn-download:hover { opacity: 0.85; }
+    .btn-download:active { transform: scale(0.98); }
+    .btn-download svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .error-card { background: var(--danger-bg); border: 1px solid var(--danger-border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; display: flex; gap: 12px; align-items: flex-start; }
+    .error-card svg { width: 20px; height: 20px; stroke: var(--danger-text); fill: none; stroke-width: 2; stroke-linecap: round; flex-shrink: 0; margin-top: 1px; }
+    .error-card h4 { font-size: 14px; font-weight: 600; color: var(--danger-text); margin-bottom: 4px; }
+    .error-card p { font-size: 13px; color: var(--danger-text); opacity: 0.85; line-height: 1.5; }
+    footer { text-align: center; padding: 1.5rem; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border); }
+    .hidden { display: none !important; }
+    @media (max-width: 500px) { .grid-2 { grid-template-columns: 1fr; } main { padding: 2rem 1rem; } .hero h2 { font-size: 22px; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+  </div>
+  <h1>Renomeador de NFS-e</h1>
+  <span>Powered by Claude AI</span>
+</header>
+
+<main>
+  <div class="hero">
+    <h2>Renomeie NFS-e automaticamente</h2>
+    <p>Faça upload do PDF da NFS-e. A IA extrai o número da nota e o nome do tomador do serviço e devolve o arquivo renomeado.</p>
+  </div>
+
+  <div class="drop-zone" id="drop-zone"
+    onclick="document.getElementById('file-input').click()"
+    ondragover="event.preventDefault(); this.classList.add('drag-over')"
+    ondragleave="this.classList.remove('drag-over')"
+    ondrop="handleDrop(event)">
+    <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+    <h3>Arraste o PDF da NFS-e aqui</h3>
+    <p>ou clique para selecionar · máx. 20 MB</p>
+    <input type="file" id="file-input" accept=".pdf" onchange="handleFile(this.files[0])">
+  </div>
+
+  <div class="card hidden" id="file-card">
+    <div class="file-header">
+      <div class="file-icon">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div class="file-info">
+        <div class="name" id="file-name"></div>
+        <div class="size" id="file-size"></div>
+      </div>
+      <button class="btn-reset" onclick="resetUI()">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="processing hidden" id="processing-card">
+    <div class="spinner"></div>
+    <p id="processing-msg">Lendo NFS-e...</p>
+  </div>
+
+  <div class="card hidden" id="result-card">
+    <div class="label">Dados extraídos da NFS-e</div>
+    <div class="grid-2">
+      <div class="data-cell">
+        <div class="cell-label">Número da NFS-e</div>
+        <div class="cell-value" id="nf-num">—</div>
+      </div>
+      <div class="data-cell">
+        <div class="cell-label">Chave de acesso</div>
+        <div class="cell-value" id="nf-chave" style="font-size:11px; font-family:var(--mono); word-break:break-all;">—</div>
+      </div>
+    </div>
+    <div class="data-cell">
+      <div class="cell-label">Tomador do serviço</div>
+      <div class="cell-value" id="nf-tomador" style="font-size:14px;">—</div>
+    </div>
+    <div class="filename-box">
+      <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <code id="new-filename"></code>
+    </div>
+    <div class="divider"></div>
+    <button class="btn-download" onclick="downloadFile()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Baixar PDF renomeado
+    </button>
+  </div>
+
+  <div class="error-card hidden" id="error-card">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div>
+      <h4>Não foi possível extrair os dados</h4>
+      <p id="error-msg"></p>
+    </div>
+  </div>
+</main>
+
+<footer>Os arquivos são processados com segurança. A chave de API fica apenas no servidor.</footer>
+
+<script>
+  let currentFile = null;
+  let resultadoNome = null;
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') handleFile(file);
+    else showError('Apenas arquivos PDF são aceitos.');
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    currentFile = file;
+    resultadoNome = null;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+    show('file-card');
+    hide('result-card');
+    hide('error-card');
+    enviar(file);
+  }
+
+  function resetUI() {
+    currentFile = null; resultadoNome = null;
+    hide('file-card'); hide('processing-card'); hide('result-card'); hide('error-card');
+    document.getElementById('file-input').value = '';
+  }
+
+  function show(id) { document.getElementById(id).classList.remove('hidden'); }
+  function hide(id) { document.getElementById(id).classList.add('hidden'); }
+  function showError(msg) { hide('processing-card'); document.getElementById('error-msg').textContent = msg; show('error-card'); }
+
+  async function enviar(file) {
+    show('processing-card'); hide('result-card'); hide('error-card');
+    document.getElementById('processing-msg').textContent = 'Enviando PDF...';
+
+    try {
+      const formData = new FormData();
+      formData.append('pdf', file);
+      document.getElementById('processing-msg').textContent = 'Extraindo dados com IA...';
+
+      const response = await fetch('/api/extrair', { method: 'POST', body: formData });
+      let data;
+      try { data = await response.json(); } catch { throw new Error('Resposta inválida do servidor.'); }
+      if (!response.ok) throw new Error(data.erro || `Erro ${response.status}`);
+
+      resultadoNome = data.novoNome;
+      document.getElementById('nf-num').textContent = data.numero || '(não encontrado)';
+      document.getElementById('nf-chave').textContent = data.chave || '(não encontrada)';
+      document.getElementById('nf-tomador').textContent = data.tomador || '(não encontrado)';
+      document.getElementById('new-filename').textContent = data.novoNome;
+
+      hide('processing-card');
+      show('result-card');
+    } catch (err) {
+      showError(err.message || 'Erro inesperado.');
+    }
+  }
+
+  function downloadFile() {
+    if (!currentFile || !resultadoNome) return;
+    const url = URL.createObjectURL(currentFile);
+    const a = document.createElement('a');
+    a.href = url; a.download = resultadoNome;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>
